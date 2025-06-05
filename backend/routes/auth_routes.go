@@ -7,7 +7,6 @@ import (
 )
 
 func AuthRoutes(r chi.Router) {
-    ac := controllers.NewAuthController()
-    r.Post("/login", ac.Login)
-    r.Post("/register", ac.Register)
+	ac := controllers.NewAuthController()
+	r.Mount("/auth", ac.Routes()) // Mounts the auth controller routes under /auth
 }

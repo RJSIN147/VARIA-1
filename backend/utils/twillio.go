@@ -1,5 +1,44 @@
 package utils
 
+import (
+	"fmt"
+	"os"
+
+	"github.com/twilio/twilio-go"
+	openapi "github.com/twilio/twilio-go/rest/verify/v2"
+)
+
+var (
+    TWILIO_ACCOUNT_SID = os.Getenv("TWILIO_ACCOUNT_SID")
+    TWILIO_AUTH_TOKEN = os.Getenv("TWILIO_AUTH_TOKEN")
+    VERIFY_SERVICE_SID = os.Getenv("VERIFY_SERVICE_SID")
+    client = twilio.NewRestClientWithParams(twilio.ClientParams{
+        Username: TWILIO_ACCOUNT_SID,
+        Password: TWILIO_AUTH_TOKEN,
+    })
+)
+
+func SendOTP(to string) error {
+    params := &openapi.CreateVerificationParams{}
+    params.SetTo(to)
+    params.SetChannel("sms")
+    _, err := client.VerifyV2.CreateVerification(VERIFY_SERVICE_SID, params)
+    if err != nil {
+        return fmt.Errorf("failed to send OTP: %w", err)
+    }
+    return nil
+}
+
+func VerifyOTP(to, code string) (bool, error) {
+    params := &openapi.CreateVerificationCheckParams{}
+    params.SetTo(to)
+    params.SetCode(code)
+    resp, err := client.VerifyV2.CreateVerificationCheck(VERIFY_SERVICE_SID, params)
+    if err != nil {
+        return false, fmt.Errorf("failed to verify OTP: %w", err)
+    }
+    return resp.Status != nil && *resp.Status == "approved", nil
+}
 // import (
 //     "fmt"
 //     "math/rand"

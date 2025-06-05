@@ -5,6 +5,7 @@ import (
 	// "database/sql"
 	"encoding/json"
 	"net/http"
+
 	// "os"
 	"strings"
 
@@ -123,21 +124,27 @@ func (ac *AuthController) Login(w http.ResponseWriter, r *http.Request) {
 		return
 
 	case "phone":
-		// Phone/OTP login (pseudo-code, you need to implement OTP logic)
+		// Phone/OTP login
 		req.Phone = strings.TrimSpace(req.Phone)
 		if req.Phone == "" || req.Otp == "" {
 			http.Error(w, "Phone and OTP are required", http.StatusBadRequest)
 			return
 		}
-		// TODO: Validate OTP for the phone number (implement your OTP logic here)
-		// For now, just accept any OTP for demonstration
+		ok, err := utils.VerifyOTP(req.Phone, req.Otp)
+		if err != nil {
+			http.Error(w, "OTP verification failed: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if !ok {
+			http.Error(w, "Invalid OTP", http.StatusUnauthorized)
+			return
+		}
 		var exists bool
 		err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM users WHERE phone = $1)", req.Phone).Scan(&exists)
 		if err != nil || !exists {
-			http.Error(w, "Invalid phone or OTP", http.StatusUnauthorized)
+			http.Error(w, "Invalid phone", http.StatusUnauthorized)
 			return
 		}
-		// If OTP is valid:
 		render.JSON(w, r, map[string]string{"message": "Login successful"})
 		return
 
@@ -153,9 +160,26 @@ func (ac *AuthController) Login(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// function to send OTP via Twilio
+func (ac *AuthController) SendOTP(w http.ResponseWriter, r *http.Request) {
+    var req struct {
+        Phone string `json:"phone"`
+    }
+    if err := json.NewDecoder(r.Body).Decode(&req); err != nil || strings.TrimSpace(req.Phone) == "" {
+        http.Error(w, "Phone is required", http.StatusBadRequest)
+        return
+    }
+    if err := utils.SendOTP(req.Phone); err != nil {
+        http.Error(w, "Failed to send OTP: "+err.Error(), http.StatusInternalServerError)
+        return
+    }
+    render.JSON(w, r, map[string]string{"message": "OTP sent"})
+}
+
 func (ac *AuthController) Routes() chi.Router {
 	r := chi.NewRouter()
 	r.Post("/login", ac.Login)
 	r.Post("/register", ac.Register)
+	r.Post("/send-otp", ac.SendOTP) 
 	return r
 }
